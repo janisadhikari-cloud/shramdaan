@@ -1,62 +1,71 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
-  // Get an instance of Firebase Auth
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // SIGN UP METHOD
-  Future<User?> signUpWithEmailAndPassword(String email, String password, String fullName) async {
+  /// SIGN UP METHOD
+  /// Now accepts email, password, fullName, phoneNumber, and dob
+  Future<User?> signUpWithEmailAndPassword(
+    String email,
+    String password,
+    String fullName,
+    String? phoneNumber,
+    DateTime? dob,
+  ) async {
     try {
-      // Create a new user with email and password
+      // Create user with email & password
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // After creating the user, update their profile with the full name
+      // Update display name
       await userCredential.user?.updateDisplayName(fullName);
-      
-      // Reload the user to get the updated information
       await userCredential.user?.reload();
 
-      // Return the user object
+      // Save user data in Firestore
+      if (userCredential.user != null) {
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'displayName': fullName,
+          'email': email,
+          'phoneNumber': phoneNumber ?? '',
+          'dob': dob != null ? Timestamp.fromDate(dob) : null,
+          'role': 'volunteer',
+        });
+      }
+
       return _auth.currentUser;
 
     } on FirebaseAuthException catch (e) {
-      // Handle specific Firebase errors
-      print("Failed to sign up: ${e.message}");
+      print("Firebase sign up error: ${e.message}");
       return null;
     } catch (e) {
-      // Handle any other errors
-      print("An unknown error occurred: $e");
+      print("Unknown error during sign up: $e");
       return null;
     }
   }
 
-  // SIGN IN METHOD
+  /// SIGN IN METHOD
   Future<User?> signInWithEmailAndPassword(String email, String password) async {
     try {
-      // Sign in the user
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-
-      // Return the user object
       return userCredential.user;
-
     } on FirebaseAuthException catch (e) {
-      // Handle specific Firebase errors
       print("Failed to sign in: ${e.message}");
       return null;
     } catch (e) {
-      // Handle any other errors
       print("An unknown error occurred: $e");
       return null;
     }
   }
 
-  // SIGN OUT METHOD
+  /// SIGN OUT METHOD
   Future<void> signOut() async {
     await _auth.signOut();
   }

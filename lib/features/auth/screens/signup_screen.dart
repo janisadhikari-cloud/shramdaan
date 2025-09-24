@@ -1,141 +1,199 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart'; // NEW: Import the AuthService
+import 'package:intl/intl.dart';
+import '../services/auth_service.dart';
 
-// NEW: Converted to a StatefulWidget
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
-
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  // NEW: Controllers to manage text field input
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
-  // NEW: Instance of our AuthService
+  final TextEditingController _phoneController = TextEditingController();
+  DateTime? _selectedDOB;
   final AuthService _authService = AuthService();
-
-  // NEW: State variable to manage loading indicator
   bool _isLoading = false;
 
-  // NEW: Dispose controllers when the widget is removed from the tree
   @override
   void dispose() {
     _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  // NEW: Sign up method
-  Future<void> _signUp() async {
-    // Show loading indicator
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Call the auth service
-    final user = await _authService.signUpWithEmailAndPassword(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-      _fullNameController.text.trim(),
+  Future<void> _pickDOB() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+      firstDate: DateTime(1920),
+      lastDate: DateTime.now(),
     );
+    if (picked != null && picked != _selectedDOB) {
+      setState(() {
+        _selectedDOB = picked;
+      });
+    }
+  }
 
-    // Hide loading indicator
-    setState(() {
-      _isLoading = false;
-    });
+  Future<void> _signUp() async {
+    final bool isFormValid = _formKey.currentState!.validate();
 
-    if (user != null) {
-      // If sign up is successful, you can navigate to the home screen
-      // For now, we'll just pop back to the login screen
-      print("Sign up successful for ${user.displayName}");
-      if (mounted) Navigator.pop(context);
-    } else {
-      // If there was an error, you can show a snackbar or dialog
-      print("Sign up failed.");
+    if (_selectedDOB == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your date of birth')),
+      );
+      return;
+    }
+
+    if (isFormValid) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final user = await _authService.signUpWithEmailAndPassword(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        _fullNameController.text.trim(),
+        _phoneController.text.trim(),
+        _selectedDOB!,
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+      if (user != null) {
+        if (mounted) Navigator.pop(context);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Sign-up failed. The email may already be in use.'),
+            ),
+          );
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('Create Account')),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
+        child: Center(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                const SizedBox(height: 80.0),
-                const Text(
-                  'Create Account',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 48.0),
-                TextFormField(
-                  controller: _fullNameController, // UPDATED
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                ),
-                const SizedBox(height: 16.0),
-                TextFormField(
-                  controller: _emailController, // UPDATED
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16.0),
-                TextFormField(
-                  controller: _passwordController, // UPDATED
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock_outline),
-                  ),
-                ),
-                const SizedBox(height: 24.0),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _signUp, // UPDATED
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  TextFormField(
+                    controller: _fullNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Full Name',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
+                    validator: (value) =>
+                        value!.isEmpty ? 'Please enter your name' : null,
                   ),
-                  // UPDATED: Show a loading indicator or text
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Sign Up', style: TextStyle(fontSize: 16.0)),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Already have an account?"),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Login'),
+                  const SizedBox(height: 16.0),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ],
-                ),
-              ],
+                    validator: (value) =>
+                        value!.isEmpty ? 'Please enter an email' : null,
+                  ),
+                  const SizedBox(height: 16.0),
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number',
+                      prefixIcon: const Icon(Icons.phone_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    validator: (value) =>
+                        value!.isEmpty ? 'Please enter a phone number' : null,
+                  ),
+                  const SizedBox(height: 16.0),
+                  TextFormField(
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Date of Birth',
+                      hintText: _selectedDOB == null
+                          ? 'Select your DOB'
+                          : DateFormat.yMMMMd().format(_selectedDOB!),
+                      prefixIcon: const Icon(Icons.calendar_today_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onTap: _pickDOB,
+                  ),
+                  const SizedBox(height: 16.0),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    validator: (value) => value!.length < 6
+                        ? 'Password must be at least 6 characters'
+                        : null,
+                  ),
+                  const SizedBox(height: 24.0),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _signUp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              fontSize: 16.0,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
