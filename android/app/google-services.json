@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "827981671830",
+    "project_id": "shram-daan",
+    "storage_bucket": "shram-daan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:827981671830:android:105445f027feb0083981b7",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDx8-2gcKU4JyBrrfJfUbW46D7pweu1qmc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
