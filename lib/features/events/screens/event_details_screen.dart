@@ -7,10 +7,356 @@ import '../../chat/screens/chat_screen.dart';
 import 'edit_event_screen.dart';
 
 class EventDetailsScreen extends StatelessWidget {
-  final String eventId; // Now takes an ID
+  final String eventId;
   const EventDetailsScreen({super.key, required this.eventId});
 
-  // Helper method to show confirmation dialog for deletion
+  @override
+  Widget build(BuildContext context) {
+    final FirestoreService firestoreService = FirestoreService();
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Event Details"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: StreamBuilder<Event>(
+        stream: firestoreService.getEventStream(eventId),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return const Center(
+              child: Text('Event not found or error occurred.'),
+            );
+          }
+
+          final event = snapshot.data!;
+          final bool isOwner = currentUser?.uid == event.organizerId;
+
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- Image ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15.0),
+                    child: Image.network(
+                      event.imageUrl,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 200,
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: Icon(
+                              Icons.hide_image_outlined,
+                              color: Colors.grey,
+                              size: 50,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // --- Header ---
+                _buildHeader(context, event, isOwner),
+                const SizedBox(height: 16),
+
+                // --- Quick Info Card ---
+                _buildQuickInfoCard(context, event),
+                const SizedBox(height: 16),
+
+                // --- Description ---
+                _buildDescriptionCard(context, event),
+                const SizedBox(height: 16),
+
+                // --- Things to Carry / Provided ---
+                if (event.thingsToCarry.isNotEmpty)
+                  _buildInfoListCard(
+                    context,
+                    title: 'What to Bring',
+                    items: event.thingsToCarry,
+                    icon: Icons.shopping_bag_outlined,
+                  ),
+                if (event.thingsProvided.isNotEmpty)
+                  _buildInfoListCard(
+                    context,
+                    title: 'What We Provide',
+                    items: event.thingsProvided,
+                    icon: Icons.check_circle_outline,
+                  ),
+
+                // --- Contact / Organizer ---
+                _buildContactCard(context, event),
+
+                // --- Action Buttons ---
+                if (currentUser != null)
+                  _buildActionButtons(
+                    context,
+                    firestoreService,
+                    event,
+                    currentUser,
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Helper Widgets for each section of the new design
+
+  Widget _buildHeader(BuildContext context, Event event, bool isOwner) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.title,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Organized by ${event.organizerName}",
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          if (isOwner)
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditEventScreen(event: event),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () =>
+                      _showDeleteDialog(context, FirestoreService(), event),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickInfoCard(BuildContext context, Event event) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildInfoChip(
+                Icons.calendar_today,
+                "Date",
+                DateFormat.yMMMd().format(event.eventDate),
+              ),
+              _buildInfoChip(
+                Icons.access_time,
+                "Time",
+                DateFormat.jm().format(event.eventDate),
+              ),
+              _buildInfoChip(Icons.people, "Category", event.category),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.green, size: 28),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionCard(BuildContext context, Event event) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Description',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            event.description,
+            style: const TextStyle(
+              fontSize: 16,
+              height: 1.5,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoListCard(
+    BuildContext context, {
+    required String title,
+    required List<String> items,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          ...items.map(
+            (item) => ListTile(
+              leading: Icon(icon, color: Colors.green),
+              title: Text(item, style: const TextStyle(fontSize: 16)),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactCard(BuildContext context, Event event) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Contact Information',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: Text(event.organizerName),
+            subtitle: const Text("Organizer"),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(
+    BuildContext context,
+    FirestoreService firestoreService,
+    Event event,
+    User currentUser,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: StreamBuilder<bool>(
+        stream: firestoreService.hasUserJoined(event.id, currentUser.uid),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final hasJoined = snapshot.data ?? false;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  if (hasJoined) {
+                    firestoreService.leaveEvent(event.id, currentUser.uid);
+                  } else {
+                    firestoreService.joinEvent(event.id, currentUser.uid);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: hasJoined ? Colors.redAccent : Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  hasJoined ? 'Leave Event' : 'Join Event',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+              if (hasJoined)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.chat),
+                    label: const Text('Ask a Question (Event Chat)'),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatScreen(
+                            eventId: event.id,
+                            eventTitle: event.title,
+                          ),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _showDeleteDialog(
     BuildContext context,
     FirestoreService firestoreService,
@@ -21,9 +367,7 @@ class EventDetailsScreen extends StatelessWidget {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete Event'),
-          content: const Text(
-            'Are you sure you want to delete this event? This action cannot be undone.',
-          ),
+          content: const Text('Are you sure you want to delete this event?'),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -34,195 +378,14 @@ class EventDetailsScreen extends StatelessWidget {
               onPressed: () async {
                 await firestoreService.deleteEvent(event.id);
                 if (context.mounted) {
-                  Navigator.of(context).pop(); // Close dialog
-                  Navigator.of(context).pop(); // Go back from details screen
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
                 }
               },
             ),
           ],
         );
       },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final FirestoreService firestoreService = FirestoreService();
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-
-    return StreamBuilder<Event>(
-      stream: firestoreService.getEventStream(eventId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Scaffold(
-              appBar: AppBar(),
-              body: const Center(child: CircularProgressIndicator()));
-        }
-
-        if (snapshot.hasError || !snapshot.hasData) {
-          return Scaffold(
-              appBar: AppBar(),
-              body: const Center(
-                  child: Text('Event not found or error occurred.')));
-        }
-
-        final event = snapshot.data!;
-        final bool isOwner = currentUser?.uid == event.organizerId;
-        final String? currentUserId = currentUser?.uid;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(event.title),
-            actions: [
-              if (isOwner)
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditEventScreen(event: event),
-                      ),
-                    );
-                  },
-                ),
-              if (isOwner)
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () =>
-                      _showDeleteDialog(context, firestoreService, event),
-                ),
-            ],
-          ),
-          body: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildDetailRow(
-                    context,
-                    icon: Icons.calendar_today,
-                    title: 'Date & Time',
-                    subtitle:
-                        DateFormat.yMMMMd().add_jm().format(event.eventDate),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDetailRow(
-                    context,
-                    icon: Icons.location_on,
-                    title: 'Location',
-                    subtitle: event.location,
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'About this event',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    event.description,
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                  const SizedBox(height: 32),
-                  if (currentUserId != null)
-                    StreamBuilder<bool>(
-                      stream: firestoreService.hasUserJoined(
-                          event.id, currentUserId),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-
-                        final hasJoined = snapshot.data ?? false;
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {
-                                if (hasJoined) {
-                                  firestoreService.leaveEvent(
-                                      event.id, currentUserId);
-                                } else {
-                                  firestoreService.joinEvent(
-                                      event.id, currentUserId);
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: hasJoined
-                                    ? Colors.redAccent
-                                    : Colors.green,
-                              ),
-                              child:
-                                  Text(hasJoined ? 'Leave Event' : 'Join Event'),
-                            ),
-                            const SizedBox(height: 8),
-                            if (hasJoined)
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.chat),
-                                label: const Text('Go to Event Chat'),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatScreen(
-                                        eventId: event.id,
-                                        eventTitle: event.title,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailRow(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.green, size: 28),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 4),
-              Text(subtitle, style: const TextStyle(fontSize: 16)),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

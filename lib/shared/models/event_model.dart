@@ -7,8 +7,11 @@ class Event {
   final String location;
   final DateTime eventDate;
   final String category;
-  final String organizerId;   // NEW
-  final String organizerName; // NEW
+  final String organizerId;
+  final String organizerName;
+  final String imageUrl; // NEW
+  final List<String> thingsToCarry;   // NEW
+  final List<String> thingsProvided; // NEW
 
   Event({
     required this.id,
@@ -17,8 +20,11 @@ class Event {
     required this.location,
     required this.eventDate,
     required this.category,
-    required this.organizerId,   // NEW
-    required this.organizerName, // NEW
+    required this.organizerId,
+    required this.organizerName,
+    required this.imageUrl,
+    required this.thingsToCarry,
+    required this.thingsProvided,
   });
 
   factory Event.fromMap(String id, Map<String, dynamic> data) {
@@ -40,8 +46,11 @@ class Event {
       location: data['location'] ?? 'No Location',
       eventDate: eventDateTime,
       category: data['category'] ?? 'General',
-      organizerId: data['organizerId'] ?? '',     // NEW
-      organizerName: data['organizerName'] ?? '', // NEW
+      organizerId: data['organizerId'] ?? '',
+      organizerName: data['organizerName'] ?? '',
+      imageUrl: data['imageUrl'] ?? '',
+      thingsToCarry: List<String>.from(data['thingsToCarry'] ?? []),
+      thingsProvided: List<String>.from(data['thingsProvided'] ?? []),
     );
   }
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/models/event_model.dart';
 import '../../../shared/services/firestore_service.dart';
 import '../../events/screens/events_list_screen.dart';
-import '../../events/widgets/featured_event_card.dart';
+import '../../events/widgets/small_featured_card.dart'; // UPDATED
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -14,7 +14,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Community Events'),
-        // Note: The action buttons are now in the main HomeScreen shell
+        // Note: Action buttons are handled in the main HomeScreen shell
       ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -24,37 +24,58 @@ class HomePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Text(
-                      'Featured Event',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      'Featured Events',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  // StreamBuilder for the featured event
-                  StreamBuilder<Event?>(
-                    stream: firestoreService.getFeaturedEventStream(),
+                  // UPDATED: StreamBuilder now handles a List of events
+                  StreamBuilder<List<Event>>(
+                    stream: firestoreService.getFeaturedEventsStream(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const SizedBox(
-                          height: 280,
+                          height: 180,
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
-                      if (!snapshot.hasData || snapshot.data == null) {
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
                         return const SizedBox(
                           height: 100,
-                          child: Center(child: Text('No upcoming featured events.')),
+                          child: Center(
+                            child: Text('No upcoming featured events.'),
+                          ),
                         );
                       }
-                      final featuredEvent = snapshot.data!;
-                      return FeaturedEventCard(event: featuredEvent);
+                      final featuredEvents = snapshot.data!;
+
+                      // Horizontal, scrollable list of featured events
+                      return SizedBox(
+                        height: 190,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          itemCount: featuredEvents.length,
+                          itemBuilder: (context, index) {
+                            final event = featuredEvents[index];
+                            return SmallFeaturedCard(event: event);
+                          },
+                        ),
+                      );
                     },
                   ),
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
                     child: Text(
                       'All Events',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
