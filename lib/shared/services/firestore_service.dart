@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -109,8 +108,7 @@ class FirestoreService {
         .map(
           (snapshot) => snapshot.docs
               .map(
-                (doc) =>
-                    Event.fromMap(doc.id, doc.data() as Map<String, dynamic>),
+                (doc) => Event.fromMap(doc.id, doc.data()),
               )
               .toList(),
         );
@@ -251,18 +249,17 @@ class FirestoreService {
         .where('userId', isEqualTo: userId)
         .snapshots()
         .asyncMap((snapshot) async {
-          if (snapshot.docs.isEmpty) return [];
-          final eventIds = snapshot.docs
-              .map((doc) => doc['eventId'] as String)
-              .toList();
-          final eventDocs = await _db
-              .collection('events')
-              .where(FieldPath.documentId, whereIn: eventIds)
-              .get();
-          return eventDocs.docs
-              .map((doc) => Event.fromMap(doc.id, doc.data()))
-              .toList();
-        });
+      if (snapshot.docs.isEmpty) return [];
+      final eventIds =
+          snapshot.docs.map((doc) => doc['eventId'] as String).toList();
+      final eventDocs = await _db
+          .collection('events')
+          .where(FieldPath.documentId, whereIn: eventIds)
+          .get();
+      return eventDocs.docs
+          .map((doc) => Event.fromMap(doc.id, doc.data()))
+          .toList();
+    });
   }
 
   // UPLOAD an event image
@@ -310,5 +307,14 @@ class FirestoreService {
     } catch (e) {
       print("Error updating user photo URL: $e");
     }
+  }
+
+  // ---------------------------
+  // NEW: USER DATA
+  // ---------------------------
+
+  // GET a single user's data
+  Future<DocumentSnapshot> getUser(String userId) {
+    return _db.collection('users').doc(userId).get();
   }
 }

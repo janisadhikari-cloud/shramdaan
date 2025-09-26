@@ -213,7 +213,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     labelText: 'Category',
                     border: OutlineInputBorder(),
                   ),
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   onChanged: (String? newValue) {
                     setState(() => _selectedCategory = newValue);
                   },

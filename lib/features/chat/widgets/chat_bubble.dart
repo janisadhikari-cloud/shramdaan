@@ -14,42 +14,46 @@ class ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-      child: Column(
-        crossAxisAlignment:
-            isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          // Sender's Name
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: Text(
-              senderName,
-              style: const TextStyle(fontSize: 12.0, color: Colors.grey),
-            ),
-          ),
-          // Message Bubble
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
-            decoration: BoxDecoration(
-              color: isCurrentUser ? Colors.green[200] : Colors.grey[300],
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16.0),
-                topRight: const Radius.circular(16.0),
-                bottomLeft: isCurrentUser
-                    ? const Radius.circular(16.0)
-                    : const Radius.circular(0),
-                bottomRight: isCurrentUser
-                    ? const Radius.circular(0)
-                    : const Radius.circular(16.0),
+    return Align(
+      // Align bubbles to the right if it's the current user, otherwise to the left
+      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75, // Bubbles can take up to 75% of screen width
+        ),
+        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          color: isCurrentUser ? Theme.of(context).primaryColorLight : Colors.white,
+          borderRadius: BorderRadius.circular(16.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              spreadRadius: 1,
+              blurRadius: 3,
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Only show the sender's name if it's not the current user
+            if (!isCurrentUser)
+              Text(
+                senderName,
+                style: TextStyle(
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
               ),
-            ),
-            child: Text(
+            if (!isCurrentUser) const SizedBox(height: 4.0),
+            Text(
               text,
               style: const TextStyle(fontSize: 16.0, color: Colors.black87),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

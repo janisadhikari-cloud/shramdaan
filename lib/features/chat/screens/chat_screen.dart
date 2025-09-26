@@ -9,7 +9,11 @@ class ChatScreen extends StatefulWidget {
   final String eventId;
   final String eventTitle;
 
-  const ChatScreen({super.key, required this.eventId, required this.eventTitle});
+  const ChatScreen({
+    super.key,
+    required this.eventId,
+    required this.eventTitle,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -28,31 +32,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty || _currentUser == null) {
-      return; // Don't send empty messages or if user is not logged in
+      return;
     }
-
     final message = ChatMessage(
       senderId: _currentUser!.uid,
       senderName: _currentUser!.displayName ?? 'Anonymous',
       text: _messageController.text.trim(),
       timestamp: Timestamp.now(),
     );
-
     _firestoreService.sendMessage(widget.eventId, message);
-
-    // Clear the input field after sending
     _messageController.clear();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.eventTitle),
-      ),
+      backgroundColor: Colors.grey.shade100, // Add a subtle background color
+      appBar: AppBar(title: Text(widget.eventTitle)),
       body: Column(
         children: [
-          // Message List
           Expanded(
             child: StreamBuilder<List<ChatMessage>>(
               stream: _firestoreService.getChatMessagesStream(widget.eventId),
@@ -61,11 +59,20 @@ class _ChatScreenState extends State<ChatScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("No messages yet."));
+                  return Center(
+                    child: Text(
+                      "Be the first to say hello!",
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  );
                 }
                 final messages = snapshot.data!;
                 return ListView.builder(
-                  reverse: true, // Shows messages from the bottom up
+                  reverse: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
@@ -79,34 +86,67 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          // Message Input
+          // Use the new, styled message input
           _buildMessageInput(),
         ],
       ),
     );
   }
 
+  // A new, redesigned message input widget
   Widget _buildMessageInput() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: const InputDecoration(
-                hintText: 'Type a message...',
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.sentences,
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.3),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, -1),
             ),
-          ),
-          const SizedBox(width: 8.0),
-          IconButton(
-            icon: const Icon(Icons.send, color: Colors.green),
-            onPressed: _sendMessage,
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                decoration: InputDecoration(
+                  hintText: 'Type a message...',
+                  border:
+                      InputBorder.none, // Remove the border from the text field
+                  filled: true,
+                  fillColor: Colors.grey.shade200,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 10.0,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ),
+            const SizedBox(width: 8.0),
+            // Use a filled circle button for sending
+            CircleAvatar(
+              backgroundColor: Theme.of(context).primaryColor,
+              child: IconButton(
+                icon: const Icon(Icons.send, color: Colors.white),
+                onPressed: _sendMessage,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

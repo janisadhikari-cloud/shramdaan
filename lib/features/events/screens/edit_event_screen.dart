@@ -244,7 +244,7 @@ class _EditEventScreenState extends State<EditEventScreen> {
                     labelText: 'Category',
                     border: OutlineInputBorder(),
                   ),
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   onChanged: (String? newValue) {
                     setState(() {
                       _selectedCategory = newValue;

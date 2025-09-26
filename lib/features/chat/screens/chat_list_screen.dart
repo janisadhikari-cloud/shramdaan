@@ -38,10 +38,20 @@ class ChatListScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final event = joinedEvents[index];
                     return ListTile(
-                      leading: const Icon(Icons.chat_bubble_outline),
-                      title: Text(event.title),
+                      // UPDATED: Show the event image in a CircleAvatar
+                      leading: CircleAvatar(
+                        radius: 25,
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: event.imageUrl.isNotEmpty
+                            ? NetworkImage(event.imageUrl)
+                            : null,
+                        child: event.imageUrl.isEmpty
+                            ? const Icon(Icons.event, color: Colors.grey)
+                            : null,
+                      ),
+                      title: Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text(event.location),
-                      trailing: const Icon(Icons.arrow_forward_ios),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         Navigator.push(
                           context,
