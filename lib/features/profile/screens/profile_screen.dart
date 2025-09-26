@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +7,7 @@ import '../../../shared/services/firestore_service.dart';
 import '../../auth/screens/auth_gate.dart';
 import '../../auth/services/auth_service.dart';
 import '../../events/screens/event_details_screen.dart';
+import '../../admin/screens/admin_dashboard_screen.dart'; // NEW
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,10 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isUploading = false;
 
   // Show options to upload image
-  Future<void> _showImageSourceDialog() async {
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
-
+  Future<void> _showImageSourceDialog(User currentUser) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -116,199 +115,227 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      // Listen for profile updates
-      stream: FirebaseAuth.instance.userChanges(),
-      builder: (context, snapshot) {
-        final currentUser = snapshot.data;
+    final User? currentUser = FirebaseAuth.instance.currentUser;
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('My Profile')),
-          body: currentUser == null
-              ? const Center(child: Text("No user is logged in."))
-              : Column(
+    if (currentUser == null) {
+      return const Scaffold(body: Center(child: Text("No user is logged in.")));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Profile')),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestoreService.getUserStream(currentUser.uid),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError ||
+              !snapshot.hasData ||
+              !snapshot.data!.exists) {
+            return const Center(child: Text("Could not load user data."));
+          }
+
+          final userData = snapshot.data!.data() as Map<String, dynamic>;
+          final String userRole = userData['role'] ?? 'volunteer';
+
+          return Column(
+            children: [
+              // PROFILE HEADER
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
                   children: [
-                    // PROFILE HEADER
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Stack(
-                            children: [
-                              CircleAvatar(
-                                radius: 50,
-                                backgroundColor: Colors.grey.shade200,
-                                backgroundImage:
-                                    currentUser.photoURL != null &&
-                                        currentUser.photoURL!.isNotEmpty
-                                    ? NetworkImage(currentUser.photoURL!)
-                                    : null,
-                                child:
-                                    currentUser.photoURL == null ||
-                                        currentUser.photoURL!.isEmpty
-                                    ? const Icon(
-                                        Icons.person,
-                                        size: 50,
-                                        color: Colors.grey,
-                                      )
-                                    : null,
-                              ),
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: Colors.green,
-                                  child: IconButton(
-                                    icon: _isUploading
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : const Icon(
-                                            Icons.edit,
-                                            size: 18,
-                                            color: Colors.white,
-                                          ),
-                                    onPressed: _isUploading
-                                        ? null
-                                        : _showImageSourceDialog,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            currentUser.displayName ?? 'Anonymous User',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.grey.shade200,
+                          backgroundImage:
+                              currentUser.photoURL != null &&
+                                  currentUser.photoURL!.isNotEmpty
+                              ? NetworkImage(currentUser.photoURL!)
+                              : null,
+                          child:
+                              currentUser.photoURL == null ||
+                                  currentUser.photoURL!.isEmpty
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: Colors.grey,
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: Colors.green,
+                            child: IconButton(
+                              icon: _isUploading
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.edit,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
+                              onPressed: _isUploading
+                                  ? null
+                                  : () => _showImageSourceDialog(currentUser),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            currentUser.email ?? 'No email provided',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      currentUser.displayName ?? 'Anonymous User',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const Divider(),
-                    // JOINED EVENTS LIST
+                    const SizedBox(height: 8),
+                    Text(
+                      currentUser.email ?? 'No email provided',
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+
+              // ADMIN DASHBOARD BUTTON (if user is admin)
+              if (userRole == 'admin')
+                ListTile(
+                  leading: const Icon(
+                    Icons.admin_panel_settings,
+                    color: Colors.green,
+                  ),
+                  title: const Text(
+                    'Admin Dashboard',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminDashboardScreen(),
+                      ),
+                    );
+                  },
+                ),
+              if (userRole == 'admin') const Divider(),
+
+              // JOINED EVENTS LIST
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 8.0,
+                      ),
+                      child: Text(
+                        'Joined Events',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 8.0,
-                            ),
-                            child: Text(
-                              'Joined Events',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                      child: StreamBuilder<List<Event>>(
+                        stream: _firestoreService.getJoinedEventsStream(
+                          currentUser.uid,
+                        ),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text('Error: ${snapshot.error}'),
+                            );
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Center(
+                              child: Text(
+                                'You haven\'t joined any events yet.',
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            child: StreamBuilder<List<Event>>(
-                              stream: _firestoreService.getJoinedEventsStream(
-                                currentUser.uid,
-                              ),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-                                if (snapshot.hasError) {
-                                  return Center(
-                                    child: Text('Error: ${snapshot.error}'),
-                                  );
-                                }
-                                if (!snapshot.hasData ||
-                                    snapshot.data!.isEmpty) {
-                                  return const Center(
-                                    child: Text(
-                                      'You haven\'t joined any events yet.',
+                            );
+                          }
+
+                          final joinedEvents = snapshot.data!;
+                          return ListView.builder(
+                            itemCount: joinedEvents.length,
+                            itemBuilder: (context, index) {
+                              final event = joinedEvents[index];
+                              return ListTile(
+                                leading: const Icon(Icons.event_available),
+                                title: Text(event.title),
+                                subtitle: Text(event.category),
+                                trailing: const Icon(Icons.arrow_forward_ios),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          EventDetailsScreen(eventId: event.id),
                                     ),
                                   );
-                                }
-
-                                final joinedEvents = snapshot.data!;
-                                return ListView.builder(
-                                  itemCount: joinedEvents.length,
-                                  itemBuilder: (context, index) {
-                                    final event = joinedEvents[index];
-                                    return ListTile(
-                                      leading: const Icon(
-                                        Icons.event_available,
-                                      ),
-                                      title: Text(event.title),
-                                      subtitle: Text(event.category),
-                                      trailing: const Icon(
-                                        Icons.arrow_forward_ios,
-                                      ),
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                EventDetailsScreen(
-                                                  eventId: event.id,
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // SIGN OUT BUTTON
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            await _authService.signOut();
-                            if (context.mounted) {
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AuthGate(),
-                                ),
-                                (route) => false,
+                                },
                               );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                          ),
-                          child: const Text('Sign Out'),
-                        ),
+                            },
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
-        );
-      },
+              ),
+
+              // SIGN OUT BUTTON
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await _authService.signOut();
+                      if (context.mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AuthGate(),
+                          ),
+                          (route) => false,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                    ),
+                    child: const Text('Sign Out'),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

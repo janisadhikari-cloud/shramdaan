@@ -9,9 +9,11 @@ class Event {
   final String category;
   final String organizerId;
   final String organizerName;
-  final String imageUrl; // NEW
-  final List<String> thingsToCarry;   // NEW
-  final List<String> thingsProvided; // NEW
+  final String imageUrl;
+  final List<String> thingsToCarry;
+  final List<String> thingsProvided;
+  final String status;      // ✅ NEW
+  final bool isFeatured;    // ✅ NEW
 
   Event({
     required this.id,
@@ -25,6 +27,8 @@ class Event {
     required this.imageUrl,
     required this.thingsToCarry,
     required this.thingsProvided,
+    required this.status,      // ✅ NEW
+    required this.isFeatured,  // ✅ NEW
   });
 
   factory Event.fromMap(String id, Map<String, dynamic> data) {
@@ -51,6 +55,8 @@ class Event {
       imageUrl: data['imageUrl'] ?? '',
       thingsToCarry: List<String>.from(data['thingsToCarry'] ?? []),
       thingsProvided: List<String>.from(data['thingsProvided'] ?? []),
+      status: data['status'] ?? 'pending',     // ✅ Default to pending
+      isFeatured: data['isFeatured'] ?? false, // ✅ Default to false
     );
   }
 }
