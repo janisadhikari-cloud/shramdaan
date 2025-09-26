@@ -6,7 +6,7 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   /// SIGN UP METHOD
-  /// Now accepts email, password, fullName, phoneNumber, and dob
+  /// Accepts email, password, fullName, phoneNumber, and dob
   Future<User?> signUpWithEmailAndPassword(
     String email,
     String password,
@@ -68,5 +68,16 @@ class AuthService {
   /// SIGN OUT METHOD
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  /// UPDATE FIREBASE AUTH USER PROFILE
+  /// This updates the user's photoURL
+  Future<void> updateUserAuthProfile(String photoURL) async {
+    try {
+      await _auth.currentUser?.updatePhotoURL(photoURL);
+      await _auth.currentUser?.reload();
+    } catch (e) {
+      print("Error updating auth profile: $e");
+    }
   }
 }
