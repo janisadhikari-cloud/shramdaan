@@ -64,32 +64,41 @@ class _SignupScreenState extends State<SignupScreen> {
         _selectedDOB!,
       );
 
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
+
       if (user != null) {
-        if (mounted) Navigator.pop(context);
+        Navigator.pop(context);
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sign-up failed. The email may already be in use.'),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sign-up failed. The email may already be in use.'),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(
+        title: const Text('Join the Community'),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 24.0,
+            ),
             child: Form(
               key: _formKey,
               child: Column(
@@ -98,12 +107,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 children: <Widget>[
                   TextFormField(
                     controller: _fullNameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Full Name',
-                      prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (value) =>
                         value!.isEmpty ? 'Please enter your name' : null,
@@ -112,12 +118,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Email',
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
                     validator: (value) =>
                         value!.isEmpty ? 'Please enter an email' : null,
@@ -126,12 +129,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   TextFormField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Phone Number',
-                      prefixIcon: const Icon(Icons.phone_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      prefixIcon: Icon(Icons.phone_outlined),
                     ),
                     validator: (value) =>
                         value!.isEmpty ? 'Please enter a phone number' : null,
@@ -145,9 +145,6 @@ class _SignupScreenState extends State<SignupScreen> {
                           ? 'Select your DOB'
                           : DateFormat.yMMMMd().format(_selectedDOB!),
                       prefixIcon: const Icon(Icons.calendar_today_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                     ),
                     onTap: _pickDOB,
                   ),
@@ -155,42 +152,45 @@ class _SignupScreenState extends State<SignupScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      prefixIcon: Icon(Icons.lock_outline),
                     ),
                     validator: (value) => value!.length < 6
                         ? 'Password must be at least 6 characters'
                         : null,
                   ),
-                  const SizedBox(height: 24.0),
+                  const SizedBox(height: 32.0),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _signUp,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                    ),
                     child: _isLoading
                         ? const SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(
+                              strokeWidth: 3,
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Sign Up',
-                            style: TextStyle(
-                              fontSize: 16.0,
-                              color: Colors.white,
-                            ),
+                        : const Text('Create Account'),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Already have an account?",
+                        style: textTheme.bodyMedium,
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'Sign In',
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.primary,
                           ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

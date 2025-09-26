@@ -16,11 +16,6 @@ class EventDetailsScreen extends StatelessWidget {
     final User? currentUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Event Details"),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
       body: StreamBuilder<Event>(
         stream: firestoreService.getEventStream(eventId),
         builder: (context, snapshot) {
@@ -36,161 +31,121 @@ class EventDetailsScreen extends StatelessWidget {
           final event = snapshot.data!;
           final bool isOwner = currentUser?.uid == event.organizerId;
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- Image ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(15.0),
-                    child: Image.network(
-                      event.imageUrl,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          height: 200,
-                          color: Colors.grey[200],
-                          child: const Center(
-                            child: Icon(
-                              Icons.hide_image_outlined,
-                              color: Colors.grey,
-                              size: 50,
-                            ),
-                          ),
-                        );
-                      },
+          return CustomScrollView(
+            slivers: [
+              // Collapsing AppBar
+              SliverAppBar(
+                expandedHeight: 250.0,
+                pinned: true,
+                floating: false,
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                foregroundColor: Colors.black87,
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Text(
+                    event.title,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      shadows: [Shadow(blurRadius: 8)],
                     ),
                   ),
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        event.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(color: Colors.grey[200]),
+                      ),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black26],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-
-                // --- Header ---
-                _buildHeader(context, event, isOwner),
-                const SizedBox(height: 16),
-
-                // --- Quick Info Card ---
-                _buildQuickInfoCard(context, event),
-                const SizedBox(height: 16),
-
-                // --- Description ---
-                _buildDescriptionCard(context, event),
-                const SizedBox(height: 16),
-
-                // --- Things to Carry / Provided ---
-                if (event.thingsToCarry.isNotEmpty)
-                  _buildInfoListCard(
-                    context,
-                    title: 'What to Bring',
-                    items: event.thingsToCarry,
-                    icon: Icons.shopping_bag_outlined,
-                  ),
-                if (event.thingsProvided.isNotEmpty)
-                  _buildInfoListCard(
-                    context,
-                    title: 'What We Provide',
-                    items: event.thingsProvided,
-                    icon: Icons.check_circle_outline,
-                  ),
-
-                // --- Contact / Organizer ---
-                _buildContactCard(context, event),
-
-                // --- Action Buttons ---
-                if (currentUser != null)
-                  _buildActionButtons(
-                    context,
-                    firestoreService,
-                    event,
-                    currentUser,
-                  ),
-              ],
-            ),
+                actions: [
+                  if (isOwner)
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      tooltip: 'Edit Event',
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditEventScreen(event: event),
+                        ),
+                      ),
+                    ),
+                  if (isOwner)
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      tooltip: 'Delete Event',
+                      onPressed: () =>
+                          _showDeleteDialog(context, firestoreService, event),
+                    ),
+                ],
+              ),
+              // Event content
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  _buildQuickInfoCard(context, event),
+                  _buildDescriptionCard(context, event),
+                  if (event.thingsToCarry.isNotEmpty)
+                    _buildInfoListCard(
+                      context,
+                      title: 'What to Bring',
+                      items: event.thingsToCarry,
+                      icon: Icons.shopping_bag_outlined,
+                    ),
+                  if (event.thingsProvided.isNotEmpty)
+                    _buildInfoListCard(
+                      context,
+                      title: 'What We Provide',
+                      items: event.thingsProvided,
+                      icon: Icons.check_circle_outline,
+                    ),
+                  _buildContactCard(context, event),
+                  if (currentUser != null)
+                    _buildActionButtons(
+                      context,
+                      firestoreService,
+                      event,
+                      currentUser,
+                    ),
+                ]),
+              ),
+            ],
           );
         },
       ),
     );
   }
 
-  // Helper Widgets for each section of the new design
-
-  Widget _buildHeader(BuildContext context, Event event, bool isOwner) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.title,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Organized by ${event.organizerName}",
-                  style: const TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          if (isOwner)
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditEventScreen(event: event),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () =>
-                      _showDeleteDialog(context, FirestoreService(), event),
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
+  // -------------------- Helper Widgets --------------------
 
   Widget _buildQuickInfoCard(BuildContext context, Event event) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildInfoChip(
-                Icons.calendar_today,
-                "Date",
-                DateFormat.yMMMd().format(event.eventDate),
-              ),
-              _buildInfoChip(
-                Icons.access_time,
-                "Time",
-                DateFormat.jm().format(event.eventDate),
-              ),
-              _buildInfoChip(Icons.people, "Category", event.category),
-            ],
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildInfoChip(
+            Icons.calendar_today,
+            "Date",
+            DateFormat.yMMMd().format(event.eventDate),
           ),
-        ),
+          _buildInfoChip(
+            Icons.access_time,
+            "Time",
+            DateFormat.jm().format(event.eventDate),
+          ),
+          _buildInfoChip(Icons.people, "Category", event.category),
+        ],
       ),
     );
   }
@@ -198,9 +153,12 @@ class EventDetailsScreen extends StatelessWidget {
   Widget _buildInfoChip(IconData icon, String label, String value) {
     return Column(
       children: [
-        Icon(icon, color: Colors.green, size: 28),
+        Icon(icon, color: Colors.green.shade800, size: 28),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+        ),
         const SizedBox(height: 4),
         Text(
           value,
@@ -216,6 +174,7 @@ class EventDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Divider(height: 24),
           const Text(
             'Description',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -226,7 +185,7 @@ class EventDetailsScreen extends StatelessWidget {
             style: const TextStyle(
               fontSize: 16,
               height: 1.5,
-              color: Colors.black54,
+              color: Colors.black87,
             ),
           ),
         ],
@@ -245,6 +204,7 @@ class EventDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Divider(height: 24),
           Text(
             title,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -258,7 +218,6 @@ class EventDetailsScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
             ),
           ),
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -266,10 +225,11 @@ class EventDetailsScreen extends StatelessWidget {
 
   Widget _buildContactCard(BuildContext context, Event event) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Divider(height: 24),
           const Text(
             'Contact Information',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -301,7 +261,6 @@ class EventDetailsScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           final hasJoined = snapshot.data ?? false;
-
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -315,15 +274,8 @@ class EventDetailsScreen extends StatelessWidget {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: hasJoined ? Colors.redAccent : Colors.green,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
-                child: Text(
-                  hasJoined ? 'Leave Event' : 'Join Event',
-                  style: const TextStyle(color: Colors.white),
-                ),
+                child: Text(hasJoined ? 'Leave Event' : 'Join Event'),
               ),
               if (hasJoined)
                 Padding(
@@ -331,21 +283,13 @@ class EventDetailsScreen extends StatelessWidget {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.chat),
                     label: const Text('Ask a Question (Event Chat)'),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(
-                            eventId: event.id,
-                            eventTitle: event.title,
-                          ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatScreen(
+                          eventId: event.id,
+                          eventTitle: event.title,
                         ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
@@ -364,28 +308,26 @@ class EventDetailsScreen extends StatelessWidget {
   ) async {
     return showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Event'),
-          content: const Text('Are you sure you want to delete this event?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Delete', style: TextStyle(color: Colors.red)),
-              onPressed: () async {
-                await firestoreService.deleteEvent(event.id);
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pop();
-                }
-              },
-            ),
-          ],
-        );
-      },
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Delete Event'),
+        content: const Text('Are you sure you want to delete this event?'),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          TextButton(
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              await firestoreService.deleteEvent(event.id);
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 }

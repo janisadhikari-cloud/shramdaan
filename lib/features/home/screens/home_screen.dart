@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home_page.dart'; // UPDATED
+import 'package:google_nav_bar/google_nav_bar.dart'; // NEW
+import 'home_page.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import '../../events/screens/create_event_screen.dart';
 import '../../leaderboard/screens/leaderboard_screen.dart';
@@ -15,11 +16,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // UPDATED: The first page (index 0) is now our new HomePage layout
   static const List<Widget> _pages = <Widget>[
     HomePage(),
     ChatListScreen(),
-    SizedBox.shrink(), // Placeholder for the central "Post" button
+    SizedBox.shrink(), // This is a placeholder, as the Post button navigates separately
     LeaderboardScreen(),
     ProfileScreen(),
   ];
@@ -41,26 +41,57 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages.elementAt(_selectedIndex),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chats'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle, size: 40),
-            label: 'Post',
+      // UPDATED: Replaced BottomNavigationBar with a more stylish GNav
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 20,
+              color: Colors.black.withOpacity(.1),
+            )
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
+            child: GNav(
+              rippleColor: Colors.grey[300]!,
+              hoverColor: Colors.grey[100]!,
+              gap: 8,
+              activeColor: Colors.white,
+              iconSize: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              duration: const Duration(milliseconds: 400),
+              tabBackgroundColor: Colors.green,
+              color: Colors.black,
+              tabs: const [
+                GButton(
+                  icon: Icons.home_outlined,
+                  text: 'Home',
+                ),
+                GButton(
+                  icon: Icons.chat_bubble_outline,
+                  text: 'Chats',
+                ),
+                GButton(
+                  icon: Icons.add_circle_outline,
+                  text: 'Post',
+                ),
+                GButton(
+                  icon: Icons.leaderboard_outlined,
+                  text: 'Leaders',
+                ),
+                GButton(
+                  icon: Icons.person_outline,
+                  text: 'Account',
+                ),
+              ],
+              selectedIndex: _selectedIndex,
+              onTabChange: _onItemTapped,
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.leaderboard),
-            label: 'Leaderboard',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
+        ),
       ),
     );
   }

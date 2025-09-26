@@ -35,8 +35,8 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     final message = ChatMessage(
-      senderId: _currentUser!.uid,
-      senderName: _currentUser!.displayName ?? 'Anonymous',
+      senderId: _currentUser.uid,
+      senderName: _currentUser.displayName ?? 'Anonymous',
       text: _messageController.text.trim(),
       timestamp: Timestamp.now(),
     );

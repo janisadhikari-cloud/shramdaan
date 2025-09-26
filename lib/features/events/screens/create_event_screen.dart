@@ -18,16 +18,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _locationController = TextEditingController();
   final _carryController = TextEditingController();
   final _providedController = TextEditingController();
-  final _imageUrlController = TextEditingController(); // NEW: manual URL entry
+  final _imageUrlController = TextEditingController();
 
   DateTime? _selectedDate;
   String? _selectedCategory;
-  Uint8List? _imageBytes; // for upload
+  Uint8List? _imageBytes;
   String? _imageName;
   bool _isLoading = false;
 
   final FirestoreService _firestoreService = FirestoreService();
-
   final List<String> _categories = [
     'Clean Up',
     'Plantation',
@@ -43,7 +42,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     _locationController.dispose();
     _carryController.dispose();
     _providedController.dispose();
-    _imageUrlController.dispose(); // dispose new controller
+    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -55,6 +54,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (pickedFile != null) {
       _imageName = pickedFile.name;
       _imageBytes = await pickedFile.readAsBytes();
+      // Clear the URL field if an image is picked
+      _imageUrlController.clear();
       setState(() {});
     }
   }
@@ -67,13 +68,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       lastDate: DateTime(2101),
     );
     if (date == null) return;
-
     final TimeOfDay? time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(DateTime.now()),
     );
     if (time == null) return;
-
     setState(() {
       _selectedDate = DateTime(
         date.year,
@@ -103,7 +102,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
     String imageUrl = _imageUrlController.text.trim();
 
-    // If no manual URL provided, upload selected image
     if (imageUrl.isEmpty && _imageBytes != null && _imageName != null) {
       imageUrl =
           await _firestoreService.uploadImage(
@@ -118,7 +116,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-
     final List<String> thingsProvided = _providedController.text
         .split(',')
         .map((e) => e.trim())
@@ -144,159 +141,153 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create New Event')),
+      appBar: AppBar(
+        title: const Text('Create New Event'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : IconButton(
+                    icon: const Icon(Icons.check),
+                    onPressed: _submitForm,
+                    tooltip: 'Create Event',
+                  ),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // OPTION 1: Image Picker
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: _imageBytes != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.memory(
-                              _imageBytes!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                            ),
-                          )
-                        : const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.camera_alt,
-                                    color: Colors.grey, size: 40),
-                                SizedBox(height: 8),
-                                Text('Tap to select an image'),
-                              ],
-                            ),
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Event Image',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: _imageBytes != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(_imageBytes!, fit: BoxFit.cover),
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.camera_alt,
+                                color: Colors.grey,
+                                size: 40,
+                              ),
+                              Text('Tap to upload image'),
+                            ],
                           ),
-                  ),
+                        ),
                 ),
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 8),
+              const Center(child: Text('OR')),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _imageUrlController,
+                decoration: const InputDecoration(labelText: 'Paste Image URL'),
+                keyboardType: TextInputType.url,
+              ),
 
-                // OPTION 2: Manual Image URL
-                TextFormField(
-                  controller: _imageUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'Or paste Image URL',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
-                const SizedBox(height: 24),
+              const Divider(height: 40),
 
-                TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Event Title',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Please enter a title' : null,
-                ),
-                const SizedBox(height: 16),
-
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
-                  ),
-                  initialValue: _selectedCategory,
-                  onChanged: (String? newValue) {
-                    setState(() => _selectedCategory = newValue);
-                  },
-                  items: _categories.map<DropdownMenuItem<String>>(
-                    (String value) => DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    ),
-                  ).toList(),
-                  validator: (value) =>
-                      value == null ? 'Please select a category' : null,
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                  validator: (value) =>
-                      value!.isEmpty ? 'Please enter a description' : null,
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _locationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Location',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Please enter a location' : null,
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _carryController,
-                  decoration: const InputDecoration(
-                    labelText: 'Things to Carry (comma-separated)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _providedController,
-                  decoration: const InputDecoration(
-                    labelText: 'Things Provided (comma-separated)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _selectedDate == null
-                            ? 'No date chosen'
-                            : 'Date: ${DateFormat.yMd().add_jm().format(_selectedDate!)}',
+              const Text(
+                'Event Details',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(labelText: 'Event Title'),
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter a title' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: 'Category'),
+                initialValue: _selectedCategory,
+                onChanged: (String? newValue) =>
+                    setState(() => _selectedCategory = newValue),
+                items: _categories
+                    .map<DropdownMenuItem<String>>(
+                      (String value) => DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: _pickDateTime,
-                      child: const Text('Choose Date'),
-                    ),
-                  ],
+                    )
+                    .toList(),
+                validator: (value) =>
+                    value == null ? 'Please select a category' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: 'Date & Time',
+                  hintText: _selectedDate == null
+                      ? 'Select Date & Time'
+                      : DateFormat.yMd().add_jm().format(_selectedDate!),
                 ),
-                const SizedBox(height: 24),
+                onTap: _pickDateTime,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _locationController,
+                decoration: const InputDecoration(labelText: 'Location'),
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter a location' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 4,
+                validator: (value) =>
+                    value!.isEmpty ? 'Please enter a description' : null,
+              ),
 
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Create Event'),
+              const Divider(height: 40),
+
+              ExpansionTile(
+                title: const Text(
+                  'Equipment Details',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              ],
-            ),
+                tilePadding: EdgeInsets.zero,
+                children: [
+                  TextFormField(
+                    controller: _carryController,
+                    decoration: const InputDecoration(
+                      labelText: 'Things to Carry (comma-separated)',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _providedController,
+                    decoration: const InputDecoration(
+                      labelText: 'Things Provided (comma-separated)',
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

@@ -26,14 +26,19 @@ class FirestoreService {
       final lowerCaseQuery = searchQuery.toLowerCase();
       query = query
           .where('title_lowercase', isGreaterThanOrEqualTo: lowerCaseQuery)
-          .where('title_lowercase', isLessThanOrEqualTo: '$lowerCaseQuery\uf8ff');
+          .where(
+            'title_lowercase',
+            isLessThanOrEqualTo: '$lowerCaseQuery\uf8ff',
+          );
     } else {
       query = query.orderBy('eventDate', descending: false);
     }
 
     return query.snapshots().map(
       (snapshot) => snapshot.docs
-          .map((doc) => Event.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+          .map(
+            (doc) => Event.fromMap(doc.id, doc.data() as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
@@ -147,7 +152,11 @@ class FirestoreService {
 
   Stream<bool> hasUserJoined(String eventId, String userId) {
     final docId = '$userId-$eventId';
-    return _db.collection('rsvps').doc(docId).snapshots().map((snapshot) => snapshot.exists);
+    return _db
+        .collection('rsvps')
+        .doc(docId)
+        .snapshots()
+        .map((snapshot) => snapshot.exists);
   }
 
   // ---------------------------
@@ -194,6 +203,24 @@ class FirestoreService {
   }
 
   // ---------------------------
+  // NEW: GET A COUNT OF EVENTS A USER HAS JOINED
+  // ---------------------------
+
+  Future<int> getUserEventCount(String userId) async {
+    try {
+      final countQuery = _db
+          .collection('rsvps')
+          .where('userId', isEqualTo: userId)
+          .count();
+      final snapshot = await countQuery.get();
+      return snapshot.count ?? 0;
+    } catch (e) {
+      print("Error getting user event count: $e");
+      return 0;
+    }
+  }
+
+  // ---------------------------
   // CHAT METHODS
   // ---------------------------
 
@@ -213,7 +240,11 @@ class FirestoreService {
 
   Future<void> sendMessage(String eventId, ChatMessage message) async {
     try {
-      await _db.collection('events').doc(eventId).collection('messages').add(message.toMap());
+      await _db
+          .collection('events')
+          .doc(eventId)
+          .collection('messages')
+          .add(message.toMap());
     } catch (e) {
       print("Error sending message: $e");
     }
@@ -230,13 +261,23 @@ class FirestoreService {
         .snapshots()
         .asyncMap((snapshot) async {
           if (snapshot.docs.isEmpty) return [];
-          final eventIds = snapshot.docs.map((doc) => doc['eventId'] as String).toList();
-          final eventDocs = await _db.collection('events').where(FieldPath.documentId, whereIn: eventIds).get();
-          return eventDocs.docs.map((doc) => Event.fromMap(doc.id, doc.data())).toList();
+          final eventIds = snapshot.docs
+              .map((doc) => doc['eventId'] as String)
+              .toList();
+          final eventDocs = await _db
+              .collection('events')
+              .where(FieldPath.documentId, whereIn: eventIds)
+              .get();
+          return eventDocs.docs
+              .map((doc) => Event.fromMap(doc.id, doc.data()))
+              .toList();
         });
   }
 
-  Future<String?> uploadImage({required Uint8List imageBytes, required String fileName}) async {
+  Future<String?> uploadImage({
+    required Uint8List imageBytes,
+    required String fileName,
+  }) async {
     try {
       String path = 'event_images/$fileName';
       Reference storageRef = _storage.ref().child(path);
@@ -253,7 +294,10 @@ class FirestoreService {
   // PROFILE PICTURE METHODS
   // ---------------------------
 
-  Future<String?> uploadProfilePicture({required Uint8List imageBytes, required String userId}) async {
+  Future<String?> uploadProfilePicture({
+    required Uint8List imageBytes,
+    required String userId,
+  }) async {
     try {
       String path = 'profile_pictures/$userId.png';
       Reference storageRef = _storage.ref().child(path);
@@ -297,7 +341,10 @@ class FirestoreService {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => Event.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+              .map(
+                (doc) =>
+                    Event.fromMap(doc.id, doc.data()),
+              )
               .toList(),
         );
   }
@@ -307,7 +354,9 @@ class FirestoreService {
   }
 
   Future<void> setFeaturedStatus(String eventId, bool isFeatured) async {
-    await _db.collection('events').doc(eventId).update({'isFeatured': isFeatured});
+    await _db.collection('events').doc(eventId).update({
+      'isFeatured': isFeatured,
+    });
   }
 
   // ---------------------------
@@ -320,8 +369,10 @@ class FirestoreService {
         .where('status', isEqualTo: 'approved')
         .orderBy('eventDate', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              return Event.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            return Event.fromMap(doc.id, doc.data());
+          }).toList(),
+        );
   }
 }

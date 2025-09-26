@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -7,11 +8,10 @@ import '../../../shared/services/firestore_service.dart';
 import '../../auth/screens/auth_gate.dart';
 import '../../auth/services/auth_service.dart';
 import '../../events/screens/event_details_screen.dart';
-import '../../admin/screens/admin_dashboard_screen.dart'; // NEW
+import '../../admin/screens/admin_dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
-
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -21,7 +21,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   bool _isUploading = false;
 
-  // Show options to upload image
+  // --- LOGIC METHODS FOR IMAGE UPLOADING ---
+
   Future<void> _showImageSourceDialog(User currentUser) async {
     showDialog(
       context: context,
@@ -52,7 +53,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Dialog to enter image URL
   Future<void> _showUrlInputDialog(User currentUser) async {
     final TextEditingController urlController = TextEditingController();
     showDialog(
@@ -82,30 +82,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Pick image from gallery and upload
   Future<void> _pickAndUploadImage(User currentUser) async {
     final pickedFile = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       imageQuality: 50,
     );
     if (pickedFile == null) return;
-
     if (mounted) setState(() => _isUploading = true);
-
     final imageBytes = await pickedFile.readAsBytes();
     final imageUrl = await _firestoreService.uploadProfilePicture(
       imageBytes: imageBytes,
       userId: currentUser.uid,
     );
-
     if (imageUrl != null) {
       await _updateProfileUrl(currentUser, imageUrl);
     }
-
     if (mounted) setState(() => _isUploading = false);
   }
 
-  // Update profile URL in Firestore and Auth
   Future<void> _updateProfileUrl(User currentUser, String photoUrl) async {
     if (mounted) setState(() => _isUploading = true);
     await _firestoreService.updateUserPhotoUrl(currentUser.uid, photoUrl);
@@ -113,228 +107,241 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) setState(() => _isUploading = false);
   }
 
+  // --- BUILD METHOD AND UI HELPERS ---
+
   @override
   Widget build(BuildContext context) {
-    final User? currentUser = FirebaseAuth.instance.currentUser;
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.userChanges(),
+      builder: (context, authSnapshot) {
+        final currentUser = authSnapshot.data;
+        if (currentUser == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Account')),
+            body: const Center(child: Text("No user is logged in.")),
+          );
+        }
 
-    if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text("No user is logged in.")));
-    }
+        return Scaffold(
+          appBar: AppBar(title: const Text('Account')),
+          body: StreamBuilder<DocumentSnapshot>(
+            stream: _firestoreService.getUserStream(currentUser.uid),
+            builder: (context, userDocSnapshot) {
+              if (!userDocSnapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final userData =
+                  userDocSnapshot.data!.data() as Map<String, dynamic>;
+              final String userRole = userData['role'] ?? 'volunteer';
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: _firestoreService.getUserStream(currentUser.uid),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError ||
-              !snapshot.hasData ||
-              !snapshot.data!.exists) {
-            return const Center(child: Text("Could not load user data."));
-          }
+              return ListView(
+                children: [
+                  _buildProfileHeader(currentUser),
+                  const SizedBox(height: 16),
+                  _buildSettingsCard(context, userRole),
+                  const SizedBox(height: 16),
+                  _buildJoinedEvents(context, currentUser),
+                  _buildSignOutButton(context),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
-          final userData = snapshot.data!.data() as Map<String, dynamic>;
-          final String userRole = userData['role'] ?? 'volunteer';
-
-          return Column(
+  Widget _buildProfileHeader(User currentUser) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          Stack(
             children: [
-              // PROFILE HEADER
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor: Colors.grey.shade200,
-                          backgroundImage:
-                              currentUser.photoURL != null &&
-                                  currentUser.photoURL!.isNotEmpty
-                              ? NetworkImage(currentUser.photoURL!)
-                              : null,
-                          child:
-                              currentUser.photoURL == null ||
-                                  currentUser.photoURL!.isEmpty
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.grey,
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.green,
-                            child: IconButton(
-                              icon: _isUploading
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.edit,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
-                              onPressed: _isUploading
-                                  ? null
-                                  : () => _showImageSourceDialog(currentUser),
+              CircleAvatar(
+                radius: 60,
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage:
+                    currentUser.photoURL != null &&
+                        currentUser.photoURL!.isNotEmpty
+                    ? NetworkImage(currentUser.photoURL!)
+                    : null,
+                child:
+                    currentUser.photoURL == null ||
+                        currentUser.photoURL!.isEmpty
+                    ? Icon(Icons.person, size: 60, color: Colors.grey.shade400)
+                    : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: IconButton(
+                    icon: _isUploading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      currentUser.displayName ?? 'Anonymous User',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      currentUser.email ?? 'No email provided',
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(),
-
-              // ADMIN DASHBOARD BUTTON (if user is admin)
-              if (userRole == 'admin')
-                ListTile(
-                  leading: const Icon(
-                    Icons.admin_panel_settings,
-                    color: Colors.green,
-                  ),
-                  title: const Text(
-                    'Admin Dashboard',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminDashboardScreen(),
-                      ),
-                    );
-                  },
-                ),
-              if (userRole == 'admin') const Divider(),
-
-              // JOINED EVENTS LIST
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 8.0,
-                      ),
-                      child: Text(
-                        'Joined Events',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: StreamBuilder<List<Event>>(
-                        stream: _firestoreService.getJoinedEventsStream(
-                          currentUser.uid,
-                        ),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-                          if (snapshot.hasError) {
-                            return Center(
-                              child: Text('Error: ${snapshot.error}'),
-                            );
-                          }
-                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return const Center(
-                              child: Text(
-                                'You haven\'t joined any events yet.',
-                              ),
-                            );
-                          }
-
-                          final joinedEvents = snapshot.data!;
-                          return ListView.builder(
-                            itemCount: joinedEvents.length,
-                            itemBuilder: (context, index) {
-                              final event = joinedEvents[index];
-                              return ListTile(
-                                leading: const Icon(Icons.event_available),
-                                title: Text(event.title),
-                                subtitle: Text(event.category),
-                                trailing: const Icon(Icons.arrow_forward_ios),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          EventDetailsScreen(eventId: event.id),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // SIGN OUT BUTTON
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await _authService.signOut();
-                      if (context.mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AuthGate(),
-                          ),
-                          (route) => false,
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                    ),
-                    child: const Text('Sign Out'),
+                          )
+                        : const Icon(Icons.edit, size: 20, color: Colors.white),
+                    onPressed: _isUploading
+                        ? null
+                        : () => _showImageSourceDialog(currentUser),
                   ),
                 ),
               ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 16),
+          Text(
+            currentUser.displayName ?? 'Anonymous User',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            currentUser.email ?? 'No email provided',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard(BuildContext context, String userRole) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Card(
+        child: Column(
+          children: [
+            if (userRole == 'admin')
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings),
+                title: const Text('Admin Dashboard'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminDashboardScreen(),
+                  ),
+                ),
+              ),
+            if (userRole == 'admin') const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Notifications'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {},
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.help_outline),
+              title: const Text('Help & Support'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJoinedEvents(BuildContext context, User currentUser) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 16, bottom: 8, left: 4),
+            child: Text(
+              'Joined Events',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+          StreamBuilder<List<Event>>(
+            stream: _firestoreService.getJoinedEventsStream(currentUser.uid),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Card(
+                  child: ListTile(
+                    title: Text('You haven\'t joined any events yet.'),
+                  ),
+                );
+              }
+              final joinedEvents = snapshot.data!;
+              return Card(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: joinedEvents.length,
+                  itemBuilder: (context, index) {
+                    final event = joinedEvents[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: event.imageUrl.isNotEmpty
+                            ? NetworkImage(event.imageUrl)
+                            : null,
+                        child: event.imageUrl.isEmpty
+                            ? const Icon(Icons.event)
+                            : null,
+                      ),
+                      title: Text(event.title),
+                      subtitle: Text(event.category),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EventDetailsScreen(eventId: event.id),
+                        ),
+                      ),
+                    );
+                  },
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignOutButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          icon: const Icon(Icons.logout),
+          label: const Text('Sign Out'),
+          onPressed: () async {
+            await _authService.signOut();
+            if (context.mounted) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const AuthGate()),
+                (route) => false,
+              );
+            }
+          },
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.red,
+            side: BorderSide(color: Colors.red.shade200),
+          ),
+        ),
       ),
     );
   }

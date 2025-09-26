@@ -5,94 +5,138 @@ import '../screens/event_details_screen.dart';
 
 class EventCard extends StatelessWidget {
   final Event event;
-
   const EventCard({super.key, required this.event});
 
   @override
   Widget build(BuildContext context) {
-    final String formattedDate = DateFormat.yMMMMd().format(event.eventDate);
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
       elevation: 4,
-      clipBehavior: Clip.antiAlias, // Image respects border radius
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              // ✅ Pass eventId only (as in old code)
               builder: (context) => EventDetailsScreen(eventId: event.id),
             ),
           );
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          alignment: Alignment.bottomLeft,
           children: [
-            // ✅ Image section (from new code)
-            if (event.imageUrl.isNotEmpty)
-              Image.network(
-                event.imageUrl,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 180,
-                    color: Colors.grey[200],
-                    child: const Center(
-                      child: Icon(
-                        Icons.hide_image_outlined,
-                        color: Colors.grey,
-                        size: 40,
-                      ),
+            // Background Image
+            Image.network(
+              event.imageUrl,
+              height: 220,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 220,
+                  color: Colors.grey.shade200,
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 220,
+                  color: Colors.grey.shade200,
+                  child: Center(
+                    child: Icon(
+                      Icons.hide_image_outlined,
+                      color: Colors.grey.shade400,
+                      size: 50,
                     ),
-                  );
-                },
+                  ),
+                );
+              },
+            ),
+
+            // Gradient Overlay
+            Container(
+              height: 220,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    // UPDATED: Replaced deprecated .withOpacity()
+                    Colors.black.withAlpha(204), // 80% opacity
+                  ],
+                ),
               ),
-            // ✅ Text section (combined improvements)
+            ),
+
+            // Category Chip
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  // UPDATED: Replaced deprecated .withOpacity()
+                  color: colorScheme.primary.withAlpha(230), // 90% opacity
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  event.category,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+
+            // Text Content
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Date (styled but still uses formattedDate from old)
                   Text(
-                    formattedDate,
-                    style: TextStyle(
-                      color: Colors.green.shade700,
+                    DateFormat.yMMMMd().format(event.eventDate).toUpperCase(),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      letterSpacing: 1.2,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Event Title
                   Text(
                     event.title,
-                    style: const TextStyle(
-                      fontSize: 20,
+                    style: textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-                  // Location Row
                   Row(
                     children: [
                       const Icon(
                         Icons.location_on_outlined,
-                        color: Colors.grey,
+                        color: Colors.white70,
                         size: 16,
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           event.location,
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: Colors.white70,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),

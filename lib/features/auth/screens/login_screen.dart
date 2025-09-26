@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart'; // NEW
-import '../../home/screens/home_screen.dart'; // NEW
+import '../services/auth_service.dart';
+import '../../home/screens/home_screen.dart';
 import 'signup_screen.dart';
 
-// NEW: Converted to a StatefulWidget
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -12,7 +11,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // NEW: Controllers and state variables
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
@@ -25,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // NEW: Sign in method
   Future<void> _signIn() async {
     setState(() {
       _isLoading = true;
@@ -36,113 +33,126 @@ class _LoginScreenState extends State<LoginScreen> {
       _passwordController.text.trim(),
     );
 
+    // After the async call, check if the widget is still mounted
+    if (!mounted) return;
+
     setState(() {
       _isLoading = false;
     });
 
     if (user != null) {
-      // Navigate to home screen, replacing the login screen in the stack
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
     } else {
-      print("Sign in failed.");
-      // TODO: Show an error message to the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sign in failed. Please check your credentials.'),
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get the text styles from the current theme
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
+        child: Center(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                const SizedBox(height: 80.0),
-                const Text(
-                  'Welcome to\nShram Daan',
+                // App Logo/Icon
+                Icon(
+                  Icons.volunteer_activism_rounded,
+                  size: 80,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(height: 24),
+
+                // Welcome Text
+                Text(
+                  'Welcome Back!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 32.0, fontWeight: FontWeight.bold),
+                  style: textTheme.displayLarge?.copyWith(
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign in to continue your journey of kindness.',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
                 ),
                 const SizedBox(height: 48.0),
+
+                // Email Input Field
                 TextFormField(
-                  controller: _emailController, // UPDATED
+                  controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email',
-                    border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                 ),
                 const SizedBox(height: 16.0),
+
+                // Password Input Field
                 TextFormField(
-                  controller: _passwordController, // UPDATED
+                  controller: _passwordController,
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Password',
-                    border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.lock_outline),
                   ),
                 ),
-                const SizedBox(height: 24.0),
+                const SizedBox(height: 32.0),
+
+                // Login Button
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _signIn, // UPDATED
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                  ),
-                  child: _isLoading // UPDATED
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Login', style: TextStyle(fontSize: 16.0)),
+                  onPressed: _isLoading ? null : _signIn,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Sign In'),
                 ),
-                const SizedBox(height: 24.0),
-                // ... (rest of the UI is the same)
-                const Row(
-                  children: <Widget>[
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('OR SIGN IN WITH'),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 24.0),
+                const SizedBox(height: 16.0),
+
+                // Sign Up Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.facebook),
-                      iconSize: 40.0,
-                      onPressed: () {},
-                    ),
-                    const SizedBox(width: 24),
-                    IconButton(
-                      icon: const Icon(Icons.g_mobiledata),
-                      iconSize: 40.0,
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text("Don't have an account?"),
+                    Text("Don't have an account?", style: textTheme.bodyMedium),
                     TextButton(
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const SignupScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const SignupScreen(),
+                          ),
                         );
                       },
-                      child: const Text('Sign Up'),
+                      child: Text(
+                        'Sign Up',
+                        style: textTheme.labelLarge?.copyWith(
+                          color: colorScheme.primary,
+                        ),
+                      ),
                     ),
                   ],
                 ),

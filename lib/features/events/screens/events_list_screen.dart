@@ -1,4 +1,4 @@
-import 'dart:async'; // For Timer (debouncer)
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../shared/models/event_model.dart';
 import '../../../shared/services/firestore_service.dart';
@@ -13,13 +13,23 @@ class EventsListScreen extends StatefulWidget {
 
 class _EventsListScreenState extends State<EventsListScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  String _selectedCategory = 'All'; // Default to show all events
+  String _selectedCategory = 'All';
 
-  // NEW: State for search functionality
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _debounce;
 
+  // NEW: Map to associate categories with icons for the filter chips
+  final Map<String, IconData> _categoryIcons = {
+    'All': Icons.apps,
+    'Clean Up': Icons.cleaning_services,
+    'Plantation': Icons.forest,
+    'Donation': Icons.volunteer_activism,
+    'Construction': Icons.construction,
+    'General': Icons.public,
+  };
+
+  // The list of categories remains the same
   final List<String> _categories = [
     'All',
     'Clean Up',
@@ -43,7 +53,6 @@ class _EventsListScreenState extends State<EventsListScreen> {
     super.dispose();
   }
 
-  // Debouncer to delay search query updates
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
@@ -57,36 +66,49 @@ class _EventsListScreenState extends State<EventsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       children: [
-        // 🔍 Search Bar
+        // --- Redesigned Search Bar ---
         Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Search events by title...',
               prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.grey.shade200,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
+                borderRadius: BorderRadius.circular(30.0),
+                borderSide: BorderSide.none, // No border
               ),
             ),
           ),
         ),
-        // 🏷️ Filter Chips
+        // --- Redesigned Filter Chips ---
         SizedBox(
-          height: 60,
+          height: 50,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
             itemCount: _categories.length,
             itemBuilder: (context, index) {
               final category = _categories[index];
+              final isSelected = _selectedCategory == category;
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: ChoiceChip(
                   label: Text(category),
-                  selected: _selectedCategory == category,
+                  // Add an icon to each chip
+                  avatar: Icon(
+                    _categoryIcons[category],
+                    color: isSelected
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                  selected: isSelected,
                   onSelected: (bool selected) {
                     if (selected) {
                       setState(() {
@@ -94,15 +116,26 @@ class _EventsListScreenState extends State<EventsListScreen> {
                       });
                     }
                   },
+                  // Custom styling for the chips
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                  backgroundColor: Colors.grey.shade200,
+                  selectedColor: colorScheme.primary,
+                  labelStyle: TextStyle(
+                    color: isSelected
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                  showCheckmark: false,
                 ),
               );
             },
           ),
         ),
-        // 📅 Event List
+        // --- Event List (StreamBuilder) ---
         Expanded(
           child: StreamBuilder<List<Event>>(
-            // ✅ Pass both category + searchQuery
             stream: _firestoreService.getEventsStream(
               category: _selectedCategory,
               searchQuery: _searchQuery,
@@ -120,6 +153,7 @@ class _EventsListScreenState extends State<EventsListScreen> {
 
               final events = snapshot.data!;
               return ListView.builder(
+                padding: const EdgeInsets.only(top: 8.0),
                 itemCount: events.length,
                 itemBuilder: (context, index) {
                   final event = events[index];
