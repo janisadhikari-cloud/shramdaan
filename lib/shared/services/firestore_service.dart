@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -9,10 +11,7 @@ class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // ---------------------------
-  // EVENT METHODS
-  // ---------------------------
-
+  // GET a real-time stream of all events with optional category + search query filter
   Stream<List<Event>> getEventsStream({String? category, String? searchQuery}) {
     Query query = _db
         .collection('events')
@@ -30,19 +29,40 @@ class FirestoreService {
             'title_lowercase',
             isLessThanOrEqualTo: '$lowerCaseQuery\uf8ff',
           );
-    } else {
-      query = query.orderBy('eventDate', descending: false);
     }
 
-    return query.snapshots().map(
-      (snapshot) => snapshot.docs
-          .map(
-            (doc) => Event.fromMap(doc.id, doc.data() as Map<String, dynamic>),
-          )
-          .toList(),
-    );
+    return query.snapshots().map((snapshot) {
+      var events = snapshot.docs.map((doc) {
+        return Event.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+      }).toList();
+
+      // Always sort the results by date inside the app (client-side)
+      events.sort((a, b) => a.eventDate.compareTo(b.eventDate));
+
+      return events;
+    });
   }
 
+  // GET a stream for the featured events
+  Stream<List<Event>> getFeaturedEventsStream() {
+    return _db
+        .collection('events')
+        .where('status', isEqualTo: 'approved')
+        .where('isFeatured', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+          var events = snapshot.docs.map((doc) {
+            return Event.fromMap(doc.id, doc.data());
+          }).toList();
+
+          // Sort the featured events by date inside the app
+          events.sort((a, b) => a.eventDate.compareTo(b.eventDate));
+
+          return events.take(3).toList(); // Take the first 3 after sorting
+        });
+  }
+
+  // ADD a new event with all details
   Future<void> addEvent({
     required String title,
     required String description,
@@ -77,6 +97,7 @@ class FirestoreService {
     }
   }
 
+  // UPDATE an existing event
   Future<void> updateEvent(String eventId, Map<String, dynamic> data) async {
     try {
       if (data['eventDate'] is DateTime) {
@@ -92,6 +113,7 @@ class FirestoreService {
     }
   }
 
+  // GET a stream for a single event
   Stream<Event> getEventStream(String eventId) {
     return _db
         .collection('events')
@@ -100,21 +122,24 @@ class FirestoreService {
         .map((snapshot) => Event.fromMap(snapshot.id, snapshot.data()!));
   }
 
-  Stream<List<Event>> getFeaturedEventsStream() {
-    return _db
-        .collection('events')
-        .where('isFeatured', isEqualTo: true)
-        .where('status', isEqualTo: 'approved')
-        .orderBy('eventDate', descending: false)
-        .limit(10)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => Event.fromMap(doc.id, doc.data()))
-              .toList(),
-        );
+  // UPLOAD an event image to Firebase Storage
+  Future<String?> uploadImage({
+    required Uint8List imageBytes,
+    required String fileName,
+  }) async {
+    try {
+      String path = 'event_images/$fileName';
+      Reference storageRef = _storage.ref().child(path);
+      UploadTask uploadTask = storageRef.putData(imageBytes);
+      TaskSnapshot snapshot = await uploadTask;
+      return await snapshot.ref.getDownloadURL();
+    } catch (e) {
+      print("Error uploading image: $e");
+      return null;
+    }
   }
 
+  // DELETE an event
   Future<void> deleteEvent(String eventId) async {
     try {
       await _db.collection('events').doc(eventId).delete();
@@ -124,10 +149,7 @@ class FirestoreService {
     }
   }
 
-  // ---------------------------
-  // RSVP METHODS
-  // ---------------------------
-
+  // JOIN an event (RSVP)
   Future<void> joinEvent(String eventId, String userId) async {
     try {
       final docId = '$userId-$eventId';
@@ -141,6 +163,7 @@ class FirestoreService {
     }
   }
 
+  // LEAVE an event
   Future<void> leaveEvent(String eventId, String userId) async {
     try {
       final docId = '$userId-$eventId';
@@ -150,6 +173,7 @@ class FirestoreService {
     }
   }
 
+  // CHECK if a user has joined an event
   Stream<bool> hasUserJoined(String eventId, String userId) {
     final docId = '$userId-$eventId';
     return _db
@@ -159,10 +183,7 @@ class FirestoreService {
         .map((snapshot) => snapshot.exists);
   }
 
-  // ---------------------------
-  // LEADERBOARD
-  // ---------------------------
-
+  // GET leaderboard data
   Future<List<LeaderboardEntry>> getLeaderboardData() async {
     try {
       final rsvpSnapshot = await _db.collection('rsvps').get();
@@ -171,15 +192,12 @@ class FirestoreService {
         final userId = doc.data()['userId'] as String;
         userEventCounts[userId] = (userEventCounts[userId] ?? 0) + 1;
       }
-
       if (userEventCounts.isEmpty) return [];
-
       final usersSnapshot = await _db
           .collection('users')
           .where(FieldPath.documentId, whereIn: userEventCounts.keys.toList())
           .get();
       final usersMap = {for (var doc in usersSnapshot.docs) doc.id: doc.data()};
-
       List<LeaderboardEntry> leaderboard = [];
       userEventCounts.forEach((userId, count) {
         if (usersMap.containsKey(userId)) {
@@ -193,7 +211,6 @@ class FirestoreService {
           );
         }
       });
-
       leaderboard.sort((a, b) => b.eventCount.compareTo(a.eventCount));
       return leaderboard;
     } catch (e) {
@@ -202,10 +219,7 @@ class FirestoreService {
     }
   }
 
-  // ---------------------------
-  // NEW: GET A COUNT OF EVENTS A USER HAS JOINED
-  // ---------------------------
-
+  // GET count of events a user has joined
   Future<int> getUserEventCount(String userId) async {
     try {
       final countQuery = _db
@@ -220,10 +234,7 @@ class FirestoreService {
     }
   }
 
-  // ---------------------------
-  // CHAT METHODS
-  // ---------------------------
-
+  // GET a stream of chat messages for a specific event
   Stream<List<ChatMessage>> getChatMessagesStream(String eventId) {
     return _db
         .collection('events')
@@ -238,6 +249,7 @@ class FirestoreService {
         );
   }
 
+  // SEND a chat message
   Future<void> sendMessage(String eventId, ChatMessage message) async {
     try {
       await _db
@@ -250,10 +262,7 @@ class FirestoreService {
     }
   }
 
-  // ---------------------------
-  // USER-RELATED METHODS
-  // ---------------------------
-
+  // GET a stream of events a user has joined
   Stream<List<Event>> getJoinedEventsStream(String userId) {
     return _db
         .collection('rsvps')
@@ -274,26 +283,7 @@ class FirestoreService {
         });
   }
 
-  Future<String?> uploadImage({
-    required Uint8List imageBytes,
-    required String fileName,
-  }) async {
-    try {
-      String path = 'event_images/$fileName';
-      Reference storageRef = _storage.ref().child(path);
-      UploadTask uploadTask = storageRef.putData(imageBytes);
-      TaskSnapshot snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
-    } catch (e) {
-      print("Error uploading image: $e");
-      return null;
-    }
-  }
-
-  // ---------------------------
-  // PROFILE PICTURE METHODS
-  // ---------------------------
-
+  // UPLOAD a profile picture
   Future<String?> uploadProfilePicture({
     required Uint8List imageBytes,
     required String userId,
@@ -310,6 +300,7 @@ class FirestoreService {
     }
   }
 
+  // UPDATE a user's photo URL in Firestore
   Future<void> updateUserPhotoUrl(String userId, String photoUrl) async {
     try {
       await _db.collection('users').doc(userId).update({'photoUrl': photoUrl});
@@ -318,21 +309,17 @@ class FirestoreService {
     }
   }
 
-  // ---------------------------
-  // USER DATA
-  // ---------------------------
-
+  // GET a single user's data
   Future<DocumentSnapshot> getUser(String userId) {
     return _db.collection('users').doc(userId).get();
   }
 
+  // GET a stream of a single user's data
   Stream<DocumentSnapshot> getUserStream(String userId) {
     return _db.collection('users').doc(userId).snapshots();
   }
 
-  // ---------------------------
-  // ADMIN-ONLY METHODS
-  // ---------------------------
+  // --- ADMIN METHODS ---
 
   Stream<List<Event>> getPendingEventsStream() {
     return _db
@@ -359,10 +346,6 @@ class FirestoreService {
     });
   }
 
-  // ---------------------------
-  // NEW: STREAM OF APPROVED EVENTS FOR ADMIN DASHBOARD
-  // ---------------------------
-
   Stream<List<Event>> getApprovedEventsStream() {
     return _db
         .collection('events')
@@ -370,9 +353,12 @@ class FirestoreService {
         .orderBy('eventDate', descending: true)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs.map((doc) {
-            return Event.fromMap(doc.id, doc.data());
-          }).toList(),
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) =>
+                    Event.fromMap(doc.id, doc.data()),
+              )
+              .toList(),
         );
   }
 }
