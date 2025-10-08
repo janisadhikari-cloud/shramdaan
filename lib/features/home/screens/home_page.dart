@@ -14,52 +14,68 @@ class HomePage extends StatelessWidget {
     final User? currentUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      // The AppBar is removed from here and is now part of EventsListScreen
-      // to allow the header to scroll away nicely.
+      // AppBar removed to let header scroll naturally
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
-            // A flexible app bar that can contain our header content
             SliverAppBar(
               floating: true,
               snap: true,
-              pinned: false, // The app bar will disappear as you scroll down
+              pinned: false,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
-              // The content of our header
+              expandedHeight: 440.0,
               flexibleSpace: FlexibleSpaceBar(
-                background: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // --- Personalized Welcome Header ---
-                    if (currentUser != null)
-                      _buildWelcomeHeader(context, currentUser),
+                // ✅ UPDATED: Added SingleChildScrollView around the Column
+                background: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- Personalized Welcome Header ---
+                      if (currentUser != null)
+                        _buildWelcomeHeader(context, currentUser),
 
-                    // --- User Stats Card ---
-                    if (currentUser != null)
-                      _buildStatsCard(context, firestoreService, currentUser.uid),
-                    
-                    // --- Featured Events Section ---
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text('Featured Events', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    ),
-                    _buildFeaturedEventsList(firestoreService),
-                    
-                    // --- All Events Title ---
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
-                      child: Text('All Events', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
+                      // --- User Stats Card ---
+                      if (currentUser != null)
+                        _buildStatsCard(
+                          context,
+                          firestoreService,
+                          currentUser.uid,
+                        ),
+
+                      // --- Featured Events Section ---
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        child: Text(
+                          'Featured Events',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      _buildFeaturedEventsList(firestoreService),
+
+                      // --- All Events Title ---
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: Text(
+                          'All Events',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              // Set the total height of the header area
-              expandedHeight: 450.0,
             ),
           ];
         },
-        // The main scrollable body is our filterable events list
+        // The main scrollable body is the events list
         body: const EventsListScreen(),
       ),
     );
@@ -75,18 +91,27 @@ class HomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Good Afternoon,', style: TextStyle(color: Colors.grey.shade600)),
+                Text(
+                  'Good Afternoon,',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
                 Text(
                   currentUser.displayName ?? 'Volunteer',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
           ),
           CircleAvatar(
             radius: 25,
-            backgroundImage: currentUser.photoURL != null ? NetworkImage(currentUser.photoURL!) : null,
-            child: currentUser.photoURL == null ? const Icon(Icons.person) : null,
+            backgroundImage: currentUser.photoURL != null
+                ? NetworkImage(currentUser.photoURL!)
+                : null,
+            child: currentUser.photoURL == null
+                ? const Icon(Icons.person)
+                : null,
           ),
         ],
       ),
@@ -94,7 +119,11 @@ class HomePage extends StatelessWidget {
   }
 
   // Helper widget for the user stats card
-  Widget _buildStatsCard(BuildContext context, FirestoreService service, String userId) {
+  Widget _buildStatsCard(
+    BuildContext context,
+    FirestoreService service,
+    String userId,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Card(
@@ -112,7 +141,10 @@ class HomePage extends StatelessWidget {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const CircularProgressIndicator();
                   }
-                  return _buildStatItem('Events Joined', snapshot.data?.toString() ?? '0');
+                  return _buildStatItem(
+                    'Events Joined',
+                    snapshot.data?.toString() ?? '0',
+                  );
                 },
               ),
               _buildStatItem('Hours Donated', '0'), // Placeholder
@@ -127,7 +159,10 @@ class HomePage extends StatelessWidget {
   Widget _buildStatItem(String label, String value) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 4),
         Text(label, style: const TextStyle(color: Colors.black54)),
       ],
@@ -140,10 +175,16 @@ class HomePage extends StatelessWidget {
       stream: service.getFeaturedEventsStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(height: 190, child: Center(child: CircularProgressIndicator()));
+          return const SizedBox(
+            height: 190,
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox(height: 100, child: Center(child: Text('No featured events.')));
+          return const SizedBox(
+            height: 100,
+            child: Center(child: Text('No featured events.')),
+          );
         }
         final featuredEvents = snapshot.data!;
         return SizedBox(

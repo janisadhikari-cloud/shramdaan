@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_nav_bar/google_nav_bar.dart'; // NEW
+import 'package:google_nav_bar/google_nav_bar.dart';
 import 'home_page.dart';
 import '../../chat/screens/chat_list_screen.dart';
 import '../../events/screens/create_event_screen.dart';
@@ -19,7 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<Widget> _pages = <Widget>[
     HomePage(),
     ChatListScreen(),
-    SizedBox.shrink(), // This is a placeholder, as the Post button navigates separately
+    SizedBox.shrink(),
     LeaderboardScreen(),
     ProfileScreen(),
   ];
@@ -41,51 +41,36 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages.elementAt(_selectedIndex),
-      // UPDATED: Replaced BottomNavigationBar with a more stylish GNav
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(
-              blurRadius: 20,
-              color: Colors.black.withOpacity(.1),
-            )
+            BoxShadow(blurRadius: 20, color: Colors.black.withOpacity(.1)),
           ],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10.0,
+              vertical: 8,
+            ), // Reduced horizontal padding
             child: GNav(
               rippleColor: Colors.grey[300]!,
               hoverColor: Colors.grey[100]!,
-              gap: 8,
+              gap: 5, // UPDATED: Reduced the gap between icon and text
               activeColor: Colors.white,
               iconSize: 24,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              // UPDATED: Reduced padding inside each tab
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               duration: const Duration(milliseconds: 400),
               tabBackgroundColor: Colors.green,
               color: Colors.black,
               tabs: const [
-                GButton(
-                  icon: Icons.home_outlined,
-                  text: 'Home',
-                ),
-                GButton(
-                  icon: Icons.chat_bubble_outline,
-                  text: 'Chats',
-                ),
-                GButton(
-                  icon: Icons.add_circle_outline,
-                  text: 'Post',
-                ),
-                GButton(
-                  icon: Icons.leaderboard_outlined,
-                  text: 'Leaders',
-                ),
-                GButton(
-                  icon: Icons.person_outline,
-                  text: 'Account',
-                ),
+                GButton(icon: Icons.home_outlined, text: 'Home'),
+                GButton(icon: Icons.chat_bubble_outline, text: 'Chats'),
+                GButton(icon: Icons.add_circle_outline, text: 'Post'),
+                GButton(icon: Icons.leaderboard_outlined, text: 'Leaders'),
+                GButton(icon: Icons.person_outline, text: 'Account'),
               ],
               selectedIndex: _selectedIndex,
               onTabChange: _onItemTapped,
