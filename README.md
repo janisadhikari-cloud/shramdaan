@@ -39,7 +39,7 @@ Open your terminal and run the following command to clone the project:
 
 ```bash
 git clone https://github.com/janisadhikari-cloud/shramdaan.git
-cd shram_daan
+cd shramdaan
 ```
 
 #### **Step B: Create and Connect Your Own Firebase Project**
